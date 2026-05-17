@@ -27,5 +27,23 @@ Vagrant.configure("2") do |config|
         vb.memory = 2048
       end
     end
-  
+
+    # ==========================================
+  # 3. AUTOMATIC ANSIBLE INVENTORY GENERATOR
+  # ==========================================
+  # This block acts as a post-boot orchestrator. It spins up NO physical VMs 
+  # (autostart: false), but dynamically generates your host configuration and 
+  # maps your cluster nodes into their correct groups before running Ansible.
+  config.vm.define "ansible_provisioner", autostart: false do |ansible_config|
+    ansible_config.vm.provision "ansible" do |ansible|
+      ansible.playbook = "cluster-setup.yml"
+      ansible.inventory_path = "hosts"
+      ansible.groups = {
+        "masters" => ["k8s-master"],
+        "workers" => ["k8s-worker-1"],
+        "k8s_cluster:children" => ["masters", "workers"]
+      }
+    end
   end
+
+end
