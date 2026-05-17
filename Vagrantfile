@@ -1,6 +1,12 @@
 Vagrant.configure("2") do |config|
 
     # ==========================================
+    # GLOBAL SETTINGS (Applied to all nodes)
+    # ==========================================
+    # Disable default VirtualBox shared folders to support native WSL execution
+    config.vm.synced_folder ".", "/vagrant", disabled: true
+
+    # ==========================================
     # 1. KUBERNETES MASTER NODE
     # ==========================================
     config.vm.define "k8s-master" do |master|
@@ -26,24 +32,20 @@ Vagrant.configure("2") do |config|
         vb.cpus = 2
         vb.memory = 2048
       end
-    end
 
-    # ==========================================
-  # 3. AUTOMATIC ANSIBLE INVENTORY GENERATOR
-  # ==========================================
-  # This block acts as a post-boot orchestrator. It spins up NO physical VMs 
-  # (autostart: false), but dynamically generates your host configuration and 
-  # maps your cluster nodes into their correct groups before running Ansible.
-  config.vm.define "ansible_provisioner", autostart: false do |ansible_config|
-    ansible_config.vm.provision "ansible" do |ansible|
-      ansible.playbook = "cluster-setup.yml"
-      ansible.inventory_path = "hosts"
-      ansible.groups = {
-        "masters" => ["k8s-master"],
-        "workers" => ["k8s-worker-1"],
-        "k8s_cluster:children" => ["masters", "workers"]
-      }
+      # ==========================================
+      # 3. HOST-BASED ANSIBLE PROVISIONER
+      # ==========================================
+      # Executed locally from WSL after both VMs are fully initialized.
+      # This automatically generates the dynamic 'hosts' inventory file on your desktop.
+      worker1.vm.provision "ansible" do |ansible|
+        ansible.playbook = "cluster-setup.yml"
+        ansible.inventory_path = "hosts"
+        ansible.groups = {
+          "masters" => ["k8s-master"],
+          "workers" => ["k8s-worker-1"],
+          "k8s_cluster:children" => ["masters", "workers"]
+        }
+      end
     end
-  end
-
 end
